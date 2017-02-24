@@ -1,0 +1,757 @@
+
+package com.thx.app.dms.pj.processor.notifications;
+
+import java.io.File;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Properties;
+import java.util.TreeMap;
+import java.util.TreeSet;
+
+import org.mule.api.MuleEventContext;
+import org.mule.api.lifecycle.Callable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.w3c.dom.Document;
+import org.w3c.dom.NamedNodeMap;
+import org.w3c.dom.Node;
+
+import com.thx.app.dms.pj.rest.DMDeviceAssets;
+import com.thx.app.dms.pj.utils.PropertiesFileReader;
+import com.thx.app.dms.pj.utils.XMLUtils;
+
+import dm.com.app.layer.workflow.dmjmsutil.XML;
+
+public class TonerNotificationProcessor implements Callable {
+	Logger m_objLogger = LoggerFactory.getLogger(TonerNotificationProcessor.class);
+		
+	private String m_strSessionId 	= null;
+	private String m_strDeviceId 	= null;
+	private String m_strDeviceType 	= null;
+	
+	private final static DMDeviceAssets objDMDeviceAssets = new DMDeviceAssets();
+	
+	private static Properties objTonerDescProperties = null;
+	
+	private static ArrayList<String> objBlackTonerDescriptions = null;
+	private static ArrayList<String> objMagentaTonerDescriptions = null;
+	private static ArrayList<String> objCyanTonerDescriptions = null;
+	private static ArrayList<String> objYellowTonerDescriptions = null;
+	
+	static {
+		objTonerDescProperties = new PropertiesFileReader().getProperties(new File("../conf/TonerDescConfig.properties"));
+		try {
+			if ((objTonerDescProperties != null) && (objTonerDescProperties.size() > 0)) {
+				try {
+					String strBlackTonerDescriptions = objTonerDescProperties.getProperty("BlackTonerDescriptions").toLowerCase();
+					objBlackTonerDescriptions = new ArrayList<String>(Arrays.<String>asList(strBlackTonerDescriptions.split(",")));
+				} catch (Exception e) {}
+				
+				try {
+					String strMagentaTonerDescriptions = objTonerDescProperties.getProperty("MagentaTonerDescriptions").toLowerCase();
+					objMagentaTonerDescriptions = new ArrayList<String>(Arrays.<String>asList(strMagentaTonerDescriptions.split(",")));
+				} catch (Exception e) {}
+				
+				try {
+					String strCyanTonerDescriptions = objTonerDescProperties.getProperty("CyanTonerDescriptions").toLowerCase();
+					objCyanTonerDescriptions = new ArrayList<String>(Arrays.<String>asList(strCyanTonerDescriptions.split(",")));
+				} catch (Exception e) {}
+				
+				try {
+					String strYellowTonerDescriptions = objTonerDescProperties.getProperty("YellowTonerDescriptions").toLowerCase();
+					objYellowTonerDescriptions = new ArrayList<String>(Arrays.<String>asList(strYellowTonerDescriptions.split(",")));
+				} catch (Exception e) {}
+			}
+		} catch (Exception e) {}
+	}
+	
+	private void parse(Document objDocument, String strNotificationType) {
+		if (objDocument != null) {
+			try {
+				m_objLogger.info("Inside NotificationProcessor........");
+				
+				m_strSessionId 	= XMLUtils.getTextContent(XMLUtils.getNode(objDocument, "//dmnotification/" + strNotificationType + "/sessionid"));
+				m_strDeviceId 	= XMLUtils.getTextContent(XMLUtils.getNode(objDocument, "//dmnotification/" + strNotificationType + "/deviceid"));
+				m_strDeviceType = XMLUtils.getTextContent(XMLUtils.getNode(objDocument, "//dmnotification/" + strNotificationType + "/DeviceType"));
+				
+				m_strDeviceType = ((m_strDeviceType == null) || (m_strDeviceType.isEmpty()))?XMLUtils.getTextContent(XMLUtils.getNode(objDocument, "//dmnotification/" + strNotificationType + "/devicetype")):m_strDeviceType;
+				
+				Document objAssetDoc = objDMDeviceAssets.getAssetData(m_strSessionId, m_strDeviceId);
+				
+				//HERE- Test Code
+				//objAssetDoc = XMLUtils.getDocument("<dmassetdata><Name ID=\"6A:95:78:70:1B:55_4\" Value=\"6A:95:78:70:1B:55_4\" Type=\"Primitive\"><Device PRTSupplies.PRTSuppliesDescription.1.39=\"Maintenance Kit\" FrontPanelDisplay=\"Deleted : 2 Pages: Stack 0, 0 of 1 Completed\" Trays.OutTrayCapacityUnit.1=\"8\" Trays.OutTrayDescr.1=\"Center Tray\" PPM.PPMPortEnabled.1.1=\"2\" PPM.PPMPortEnabled.1.2=\"2\" DeviceType=\"PrinterService\" PPM.PPMPortEnabled.1.5=\"2\" PPM.PPMPortEnabled.1.6=\"1\" PPM.PPMPortEnabled.1.3=\"1\" Trays.InTrayCurrentLevel.2=\"0\" Trays.InTrayCurrentLevel.1=\"0\" PPM.PPMPortEnabled.1.4=\"2\" PRTSupplies.PRTSuppliesCurrentLevel.1.12=\"-3\" PRTSupplies.PRTSuppliesDescription.1.41=\"Drum Cartridge Kit\" PrinterStatus=\"Warning\" Alerts.printerV2Alert.alertTablePrtAlertLocation.1.40=\"4653507\" Trays.OutTrayType.1=\"4\" PrinterDetectedState=\"00 04\" Trays.OutTrayStatus.1=\"0\" Alerts.printerV2Alert.alertTablePrtAlertLocation.1.43=\"1049000\" IPAddress=\"10.255.108.147\" SysObjectID=\"1.3.6.1.4.1.674.10898.2.100.10.52.1094474003\" PRTMedia.PaperSizeMaxSize.1.3=\"215900\" PRTMedia.PaperSizeMaxSize.1.4=\"355600\" CurrentPrinterStatus=\"3\" PRTMedia.PaperSizeMaxSize.1.1=\"215900\" PRTMedia.PaperSizeMaxSize.1.2=\"355600\" Trays.OutTrayMaxCapacity.1=\"250\" PRTMedia.PaperSizeMinSize.1.1=\"127000\" PRTSupplies.PRTSuppliesMaxLevel.1.39=\"-2\" PRTMedia.PaperSizeMinSize.1.2=\"127000\" PRTMedia.PaperSizeMinSize.1.3=\"210000\" PRTMedia.PaperSizeMinSize.1.4=\"210000\" GroupId=\"6075fec6-45d2-4737-aebd-4a2b1c81667d\" PRTSupplies.PRTSuppliesMaxLevel.1.41=\"60000\" Trays.InTrayMaxCapacity.1=\"550\" Trays.InTrayMaxCapacity.2=\"150\" PrinterType=\"4\" PhysicalAddress.1=\"08 00 37 60 F0 29\" TotalPageCount=\"297\" EndPoll=\"Tue Jan 10 18:26:01 2017\" ModelName=\"DEFAULT\" PPM.PPMPortProtocolTargetPort.1.10=\"0\" PRTMedia.PaperSizeUnit.1.1=\"4\" PRTMedia.PaperSizeUnit.1.2=\"4\" PPM.PPMPortProtocolTargetPort.1.14=\"80\" PPM.PPMPortProtocolTargetPort.1.13=\"0\" PRTMedia.PaperSizeUnit.1.3=\"4\" PPM.PPMPortProtocolTargetPort.1.12=\"80\" PRTMedia.PaperSizeUnit.1.4=\"4\" PPM.PPMPortProtocolTargetPort.1.11=\"0\" IsAsset=\"0\" PRTMedia.PaperSizeMinXSize.1.4=\"148000\" PRTMedia.PaperSizeMinXSize.1.3=\"210000\" PRTSupplies.PRTSuppliesMaxLevel.1.5=\"-2\" PRTSupplies.PRTSuppliesMaxLevel.1.3=\"3000\" PRTSupplies.PRTSuppliesMaxLevel.1.4=\"3000\" PRTSupplies.PRTSuppliesMaxLevel.1.1=\"3000\" PRTSupplies.PRTSuppliesMaxLevel.1.2=\"3000\" PPM.PPMPortEnabled.1.10=\"2\" Trays.OutTrayRemainingCapacity.1=\"-3\" PPM.PPMPortEnabled.1.11=\"2\" Alerts.printerV2Alert.alertTablePrtAlertGroup.1.40=\"8\" ID=\"6A:95:78:70:1B:55_4\" PRTSupplies.PRTSuppliesDescription.1.1=\"Black Toner Cartridge;SN4200090019100000\" Alerts.printerV2Alert.alertTablePrtAlertDescription.1.43=\"016-424 Device is in low power mode. No action is required. All Apps are enabled.\" PRTSupplies.PRTSuppliesDescription.1.2=\"Yellow Toner Cartridge;SN5700090029100000\" PRTSupplies.PRTSuppliesCurrentLevel.1.41=\"59400\" Alerts.printerV2Alert.alertTablePrtAlertDescription.1.40=\"071-451 Tray 1 is out of paper. Add paper to Tray 1. Printing is degraded; All other Apps are unaffected.\" PRTSupplies.PRTSuppliesDescription.1.5=\"Waste Cartridge\" PPM.PPMPortEnabled.1.14=\"1\" PRTSupplies.PRTSuppliesDescription.1.3=\"Magenta Toner Cartridge;SN1B0009002E040000\" PPM.PPMPortEnabled.1.12=\"2\" Alerts.printerV2Alert.alertTablePrtAlertGroup.1.43=\"5\" PRTSupplies.PRTSuppliesDescription.1.4=\"Cyan Toner Cartridge;SN2A00090004040000\" PPM.PPMPortEnabled.1.13=\"2\" PRTSupplies.PRTSuppliesCurrentLevel.1.39=\"-3\" DeviceDescription=\"Dell Color MFP S3845cdn v 1. 2. 0 Multifunction System\" PRTInterpreter.PRTDataFormat.1.15=\"Printer Command Language (PCL) Interpreter, also handles PCL5e, and simple test files\" Trays.InTrayMediaName.2=\"iso-a4-white\" PRTInterpreter.PRTDataFormat.1.14=\"Adobe Portable Document Format\" Trays.InTrayMediaName.1=\"na-letter-white\" DeviceState=\"0\" DiscoveryChannel=\"TR069\" PRTInterpreter.PRTDataFormat.1.18=\"XML Paper Specification (XPS)\" PRTMedia.PaperSizeMaxXSize.1.2=\"215900\" StartPoll=\"Tue Jan 10 18:26:00 2017\" PRTMedia.PaperSizeMaxXSize.1.1=\"215900\" PRTMedia.PaperSizeMaxXSize.1.4=\"215900\" Alerts.printerV2Alert.alertTablePrtAlertCode.1.40=\"13\" PRTMedia.PaperSizeMaxXSize.1.3=\"215900\" Trays.InTrayCapacityUnit.1=\"8\" Trays.InTrayCapacityUnit.2=\"8\" DetailedDescription=\"Dell Color MFP S3845cdn; System 16.10.6, Controller 1.0.12, IOT 1.2.0, ADF 42.0.0, Fax 104.7.0, Panel 89.16.11, Boot 21.0.173, Plugin 2.0.0\" DeviceTypeIdentifier=\"Black Toner Cartridge;SN4200090019100000\" PRTInterpreter.PRTDataFormat.1.1=\"Hewlett-Packard Graphics Language 2\" PRTInterpreter.PRTDataFormat.1.5=\"Automatic Page Description Language Switching\" PRTInterpreter.PRTDataFormat.1.2=\"PostScript (PS) (R) interpreter, also handles PDF files\" Alerts.printerV2Alert.alertTablePrtAlertCode.1.43=\"23\" PaperMediaPathType.1.3=\"3\" PaperMediaPathType.1.2=\"5\" PRTMedia.PaperSizeMinXSize.1.1=\"127000\" PaperMediaPathType.1.1=\"5\" PRTMedia.PaperSizeMinXSize.1.2=\"76200\" PaperMediaPathType.1.4=\"4\" Trays.InTrayDescr.1=\"Tray 1\" Trays.InTrayDescr.2=\"Bypass Tray\" Trays.InTrayMediaColor.1=\"white\" Trays.InTrayMediaColor.2=\"white\" PPM.PPMPortProtocolTargetPort.1.3=\"515\" PPM.PPMPortProtocolTargetPort.1.2=\"0\" PRTSupplies.PRTSuppliesDescription.1.12=\"Fusing\" PRTSupplies.PRTSuppliesMaxLevel.1.12=\"-2\" PPM.PPMPortProtocolTargetPort.1.1=\"0\" Trays.OutTrayName.1=\"Center Tray\" Trays.InTrayName.2=\"Bypass Tray\" Trays.InTrayStatus.2=\"0\" AssetName=\"6A:95:78:70:1B:55_4\" Trays.InTrayName.1=\"Tray 1\" Trays.InTrayStatus.1=\"17\" BlackPageCount=\"297\" Alerts.printerV2Alert.alertTablePrtAlertGroupIndex.1.40=\"1\" Alerts.printerV2Alert.alertTablePrtAlertGroupIndex.1.43=\"-1\" PRTInterpreter.PRTDataFormat.1.10=\"Tagged Image Format (TIFF) and Tagged Image File Format - Fax Extended (TIFF-FX) interpreter: Revision 6.0, Profiles S, F, C, and M\" PRTInterpreter.PRTDataFormat.1.11=\"Printer Command Language (PCL) Interpreter, also handles PCL 6, and simple test files\" PRTInterpreter.PRTDataFormat.1.12=\"Printer Job Language\" Trays.InTrayMediaType.1=\"Plain\" Trays.InTrayMediaType.2=\"Plain\" ServiceTagNumber=\"999999\" Alerts.printerV2Alert.alertTablePrtAlertSeverityLevel.1.43=\"5\" MACAddress=\"08 00 37 60 F0 29\" PrinterColorType=\"4\" Contact=\"Administrator\" Location=\"test\" MemoryCapacity=\"2048.00\" PRTSupplies.PRTSuppliesCurrentLevel.1.4=\"2250\" PRTSupplies.PRTSuppliesCurrentLevel.1.5=\"-3\" PRTSupplies.PRTSuppliesCurrentLevel.1.2=\"2520\" PrinterHostname=\"Color MFP S3845cdn\" PRTSupplies.PRTSuppliesCurrentLevel.1.3=\"2610\" PRTSupplies.PRTSuppliesCurrentLevel.1.1=\"2550\" PPM.PPMPortProtocolTargetPort.1.8=\"9100\" Name=\"Color MFP S3845cdn\" Trays.InTrayType.1=\"3\" PPM.PPMPortProtocolTargetPort.1.9=\"80\" Trays.InTrayType.2=\"5\" PPM.PPMPortProtocolTargetPort.1.4=\"0\" PPM.PPMPortProtocolTargetPort.1.5=\"0\" PPM.PPMPortProtocolTargetPort.1.6=\"0\" MaxPrintingSpeed=\"2160\" PrinterSerialNumber=\"999999\" PPM.PPMPortProtocolTargetPort.1.7=\"0\" LastModifiedTime=\"2017-01-10 12:56:09\" PPM.PPMPortEnabled.1.7=\"1\" PPM.PPMPortEnabled.1.8=\"1\" PPM.PPMPortEnabled.1.9=\"1\" Alerts.printerV2Alert.alertTablePrtAlertSeverityLevel.1.40=\"5\" LastUpdatedTime=\"2017-01-10 12:55:12\" aMaintenanceInfo=\"6F 01 04 00 00 18 38 77 01 04 00 00 00 01 78 01 04 00 00 00 01 7F 01 04 00 00 00 01 68 01 04 00 00 00 01 55 01 04 00 00 00 01 31 01 04 00 00 00 01 32 01 04 00 00 00 01 33 01 04 00 00 00 01 34 01 04 00 00 00 01 70 01 04 00 00 22 60 71 01 04 00 00 18 38 72\"  PRTSupplies.PRTSuppliesType.1.1=\"9\" PRTSupplies.PRTSuppliesType.1.2=\"3\" PRTSupplies.PRTSuppliesType.1.3=\"4\" PRTSupplies.PRTSuppliesType.1.4=\"3\" PRTSupplies.PRTSuppliesType.1.5=\"9\" PRTSupplies.PRTSuppliesType.1.6=\"3\" PRTSupplies.PRTSuppliesType.1.7=\"3\"  PRTSupplies.PRTSuppliesMaxLevel.1.6=\"4000\" PRTSupplies.PRTSuppliesCurrentLevel.1.6=\"1500\" PRTSupplies.PRTSuppliesMaxLevel.1.7=\"1000\" PRTSupplies.PRTSuppliesCurrentLevel.1.7=\"100\" PRTMarkerColorant.PRTMarkerColorantValue.1.1=\"black\" PRTMarkerColorant.PRTMarkerColorantValue.1.2=\"cyan\" PRTMarkerColorant.PRTMarkerColorantValue.1.3=\"Magenta\" PRTMarkerColorant.PRTMarkerColorantValue.1.4=\"yellow\"/></Name><status>1</status><message>Success</message></dmassetdata>");
+				
+				
+				Node objNode = XMLUtils.getNode(objAssetDoc, "//dmassetdata/Name/Device/@MaintenanceInfo");
+				if (objNode != null) {
+					updateTonerValuesBasedOnBrInfoMaintenance(objAssetDoc);
+					return;
+				}
+				
+				objNode = XMLUtils.getNode(objDocument, "//dmnotification/" + strNotificationType + "/*[substring(name(), string-length(name()) - string-length('CurrentLevel') +1) = 'CurrentLevel' or substring(name(), string-length(name()) - string-length('MaxLevel') +1) = 'MaxLevel']");
+				
+				if (objNode != null) {
+					updateTonerValuesBasedOnMaxCurrentValues(objAssetDoc, objDocument, strNotificationType);
+					return;
+				}
+				
+				String strAssetData = XML.toString(objAssetDoc);
+				if (strAssetData.contains("PRTMarkerColorant.PRTMarkerColorantValue")) {
+					updateTonerValuesBasedOnPRTSuppliesType(objAssetDoc);
+					return;
+				}
+				
+				updateTonerValuesBasedOnPRTValues(objAssetDoc);
+							
+			} catch (Exception ex) {
+				m_objLogger.error("Exception: " + ex.getLocalizedMessage());
+			}
+		}
+	}
+	
+	/*private long getValue(String strCurrentLevelAbsolute, String strMaxLevel) {
+		long nLevel = -1;
+		try {
+			nLevel = (long)(Double.parseDouble(strCurrentLevelAbsolute)*100/Double.parseDouble(strMaxLevel));
+		} catch (Exception e) {}
+		
+		return nLevel == Long.MAX_VALUE?-1:nLevel;
+	}*/
+	
+	private long getValue(String strCurrentLevelAbsolute, String strMaxLevel) {
+		long nLevel = -1;
+		try {
+			nLevel = (long)(Double.parseDouble(strCurrentLevelAbsolute)*100/Double.parseDouble(strMaxLevel));
+		} catch (Exception e) {}
+		
+		return ((nLevel < 0 || nLevel > 100)?-1:nLevel);
+	}
+	
+	private String getNotificationType(Document objDocument) {
+		String strNotificationType = null;
+		try {
+			Node objSessionNode = XMLUtils.getNode(objDocument, "//dmnotification/*/sessionid");
+			strNotificationType = objSessionNode.getParentNode().getNodeName();
+		} catch(Exception e) {
+			m_objLogger.error("Caught exception", e);
+		} 
+		return strNotificationType;
+	}
+	
+	@Override
+	public Object onCall(MuleEventContext eventContext) throws Exception {
+		
+		Document objDoc = XMLUtils.getDocument(eventContext.getMessageAsString());
+		
+		String strNotificationType = getNotificationType(objDoc);
+		
+		parse(objDoc, strNotificationType);
+		return null;
+	}
+	
+	private void updateTonerValuesBasedOnBrInfoMaintenance(Document objAssetDoc) {
+		try {
+			if (objAssetDoc != null) {
+				
+				Node objDeviceNode = XMLUtils.getNode(objAssetDoc, "//dmassetdata/Name/Device[@ID='" + m_strDeviceId + "']");
+				if (objDeviceNode != null) {
+					String strBrInfoMaintenance = XMLUtils.getAttributeValue(objDeviceNode, "MaintenanceInfo");
+					if ((strBrInfoMaintenance != null) && (strBrInfoMaintenance.length() > 0)) {
+						
+						String strAssetType = XMLUtils.getAttributeValue(objDeviceNode.getParentNode(), "Type");
+						
+						String strSerialNumber = XMLUtils.getAttributeValue(objDeviceNode, "PrinterSerialNumber");
+						
+						StringBuilder objMetaDataBuilder = new StringBuilder();
+						
+						if ((strSerialNumber != null) && (strSerialNumber.equalsIgnoreCase("U63883C6N609769"))) {
+							objMetaDataBuilder.append(" LevelK=\"").append(7).append("\"");
+						} else {
+							/*
+							Format: Id(1byte), flag(1byte), value len (1byte), value(nbyte), ……..FF
+							 
+							TonerLifeBlack (%)　- 0x6F(Id for black toner), 
+							TonerLifeCyan (%)　- 0x70(Id for cyan toner), 
+							TonerLifeMagenta (%) - 0x71(Id for Magenta toner), 
+							TonerLifeYellow (%) - 0x72(Id for Yellow toner)*/
+							
+							String strTonerData = null;
+							
+							//TonerLifeBlack
+							if (strBrInfoMaintenance.contains("0x6F")) {
+								strTonerData = strBrInfoMaintenance.substring(strBrInfoMaintenance.indexOf("0x6F") + 5);
+							} else if (strBrInfoMaintenance.contains(" 6F")) {							
+								strTonerData = strBrInfoMaintenance.substring(strBrInfoMaintenance.indexOf(" 6F") + 4);							
+							} else if (strBrInfoMaintenance.contains("6F ")) {							
+								strTonerData = strBrInfoMaintenance.substring(strBrInfoMaintenance.indexOf("6F ") + 3);							
+							}
+							
+							if ((strTonerData != null) && (strTonerData.length() > 0)) {
+								String[] strParts = strTonerData.split("[ ]");
+								int nCount = Integer.parseInt(strParts[1]);
+								StringBuilder objBuilder = new StringBuilder();
+								for (int nIndex = 0; nIndex < nCount; nIndex++) {
+									objBuilder.append(strParts[nIndex+2]);
+								}
+								objMetaDataBuilder.append(" LevelK=\"").append((Integer.parseInt(objBuilder.toString().trim(), 16 ))/100).append("\"");
+							}
+							strTonerData = null;
+							
+							//TonerLifeCyan
+							if (strBrInfoMaintenance.contains("0x70")) {
+								strTonerData = strBrInfoMaintenance.substring(strBrInfoMaintenance.indexOf("0x70") + 5);
+							} else if (strBrInfoMaintenance.contains(" 70")) {							
+								strTonerData = strBrInfoMaintenance.substring(strBrInfoMaintenance.indexOf(" 70") + 4);							
+							} else if (strBrInfoMaintenance.contains("70 ")) {							
+								strTonerData = strBrInfoMaintenance.substring(strBrInfoMaintenance.indexOf("70 ") + 3);							
+							}
+							
+							if ((strTonerData != null) && (strTonerData.length() > 0)) {
+								String[] strParts = strTonerData.split("[ ]");
+								int nCount = Integer.parseInt(strParts[1]);
+								StringBuilder objBuilder = new StringBuilder();
+								for (int nIndex = 0; nIndex < nCount; nIndex++) {
+									objBuilder.append(strParts[nIndex+2]);
+								}
+								objMetaDataBuilder.append(" LevelC=\"").append((Integer.parseInt(objBuilder.toString().trim(), 16 ))/100).append("\"");
+							}
+							strTonerData = null;
+							//TonerLifeMagenta
+							if (strBrInfoMaintenance.contains("0x72")) {
+								strTonerData = strBrInfoMaintenance.substring(strBrInfoMaintenance.indexOf("0x72") + 5);
+							} else if (strBrInfoMaintenance.contains(" 72")) {							
+								strTonerData = strBrInfoMaintenance.substring(strBrInfoMaintenance.indexOf(" 72") + 4);							
+							} else if (strBrInfoMaintenance.contains("72 ")) {							
+								strTonerData = strBrInfoMaintenance.substring(strBrInfoMaintenance.indexOf("72 ") + 3);							
+							}
+							
+							if ((strTonerData != null) && (strTonerData.length() > 0)) {
+								String[] strParts = strTonerData.split("[ ]");
+								int nCount = Integer.parseInt(strParts[1]);
+								StringBuilder objBuilder = new StringBuilder();
+								for (int nIndex = 0; nIndex < nCount; nIndex++) {
+									objBuilder.append(strParts[nIndex+2]);
+								}
+								objMetaDataBuilder.append(" LevelM=\"").append((Integer.parseInt(objBuilder.toString().trim(), 16 ))/100).append("\"");
+							}
+							strTonerData = null;
+							//TonerLifeYellow
+							if (strBrInfoMaintenance.contains("0x71")) {
+								strTonerData = strBrInfoMaintenance.substring(strBrInfoMaintenance.indexOf("0x71") + 5);
+							} else if (strBrInfoMaintenance.contains(" 71")) {							
+								strTonerData = strBrInfoMaintenance.substring(strBrInfoMaintenance.indexOf(" 71") + 4);							
+							} else if (strBrInfoMaintenance.contains("71 ")) {							
+								strTonerData = strBrInfoMaintenance.substring(strBrInfoMaintenance.indexOf("71 ") + 3);							
+							}
+							
+							if ((strTonerData != null) && (strTonerData.length() > 0)) {
+								String[] strParts = strTonerData.split("[ ]");
+								int nCount = Integer.parseInt(strParts[1]);
+								StringBuilder objBuilder = new StringBuilder();
+								for (int nIndex = 0; nIndex < nCount; nIndex++) {
+									objBuilder.append(strParts[nIndex+2]);
+								}
+								objMetaDataBuilder.append(" LevelY=\"").append((Integer.parseInt(objBuilder.toString().trim(), 16 ))/100).append("\"");
+							}
+							strTonerData = null;
+						}
+						if (objMetaDataBuilder.length() > 0) {
+							objMetaDataBuilder.insert(0, "<dmmetadata><param ");
+							objMetaDataBuilder.append("/></dmmetadata>");
+							
+							m_objLogger.info("DeviceId:" + m_strDeviceId + " InsertMetadata Response:" + XMLUtils.toString(objDMDeviceAssets.insertMetaData(m_strSessionId, m_strDeviceId, m_strDeviceType, strAssetType, objMetaDataBuilder.toString())));
+
+						}
+					}
+				}
+			}
+		} catch (Exception ex) {
+			m_objLogger.error("Exception: " + ex.getLocalizedMessage());
+		}
+	}
+	
+	private void updateTonerValuesBasedOnMaxCurrentValues(Document objAssetDoc, Document objNotification, String strNotificationType) {
+		try {
+			if (objAssetDoc != null) {
+				String strMaxLevelCyan = null;
+				String strCurrentLevelAbsoluteCyan = null;
+				String strMaxLevelMagenta = null;
+				String strCurrentLevelAbsoluteMagenta = null;
+				String strMaxLevelYellow = null;
+				String strCurrentLevelAbsoluteYellow = null;
+				String strMaxLevelBlack = null;
+				String strCurrentLevelAbsoluteBlack = null;
+				
+				Node objDeviceNode = XMLUtils.getNode(objAssetDoc, "//dmassetdata/Name/Device[@ID='" + m_strDeviceId + "']");
+				if (objDeviceNode != null) {
+					
+					String strAssetType = XMLUtils.getAttributeValue(objDeviceNode.getParentNode(), "Type");
+					
+					strMaxLevelCyan = XMLUtils.getTextContent(XMLUtils.getNode(objNotification, "//dmnotification/" + strNotificationType + "/CyanTonerMaxLevel"));
+					strCurrentLevelAbsoluteCyan = XMLUtils.getTextContent(XMLUtils.getNode(objNotification, "//dmnotification/" + strNotificationType + "/CyanTonerCurrentLevel"));
+					/*if(strCurrentLevelAbsoluteCyan.length()<=0) {
+						strCurrentLevelAbsoluteCyan = XMLUtils.getTextContent(XMLUtils.getNode(objNotification, "//dmnotification/" + strNotificationType + "/CurrentLevelCyan"));
+					}*/
+					if ((strCurrentLevelAbsoluteCyan != null) && (strCurrentLevelAbsoluteCyan.length() > 0)) {
+						strMaxLevelCyan = (strMaxLevelCyan == null | strMaxLevelCyan.isEmpty())?XMLUtils.getAttributeValue(objDeviceNode, "CyanTonerMaxLevel"):strMaxLevelCyan;
+					}
+					
+					strMaxLevelMagenta = XMLUtils.getTextContent(XMLUtils.getNode(objNotification, "//dmnotification/" + strNotificationType + "/MagentaTonerMaxLevel"));
+					strCurrentLevelAbsoluteMagenta = XMLUtils.getTextContent(XMLUtils.getNode(objNotification, "//dmnotification/" + strNotificationType + "/MagentaTonerCurrentLevel"));
+					/*if(strCurrentLevelAbsoluteMagenta.length()<=0) {
+						strCurrentLevelAbsoluteMagenta = XMLUtils.getTextContent(XMLUtils.getNode(objNotification, "//dmnotification/" + strNotificationType + "/CurrentLevelMagenta"));
+					}*/
+					
+					if ((strCurrentLevelAbsoluteMagenta != null) && (strCurrentLevelAbsoluteMagenta.length() > 0)) {
+						strMaxLevelMagenta = (strMaxLevelMagenta == null | strMaxLevelMagenta.isEmpty())?XMLUtils.getAttributeValue(objDeviceNode, "MagentaTonerMaxLevel"):strMaxLevelMagenta;
+					}
+					
+					strMaxLevelYellow = XMLUtils.getTextContent(XMLUtils.getNode(objNotification, "//dmnotification/" + strNotificationType + "/YellowTonerMaxLevel"));
+					strCurrentLevelAbsoluteYellow = XMLUtils.getTextContent(XMLUtils.getNode(objNotification, "//dmnotification/" + strNotificationType + "/YellowTonerCurrentLevel"));
+					/*if(strCurrentLevelAbsoluteYellow.length()<=0) {
+						strCurrentLevelAbsoluteYellow = XMLUtils.getTextContent(XMLUtils.getNode(objNotification, "//dmnotification/" + strNotificationType + "/CurrentLevelYellow"));
+					}*/
+					
+					if ((strCurrentLevelAbsoluteYellow != null) && (strCurrentLevelAbsoluteYellow.length() > 0)) {
+						strMaxLevelYellow = (strMaxLevelYellow == null | strMaxLevelYellow.isEmpty())?XMLUtils.getAttributeValue(objDeviceNode, "YellowTonerMaxLevel"):strMaxLevelYellow;
+					}
+					
+					strMaxLevelBlack = XMLUtils.getTextContent(XMLUtils.getNode(objNotification, "//dmnotification/" + strNotificationType + "/BlackTonerMaxLevel"));
+					strCurrentLevelAbsoluteBlack = XMLUtils.getTextContent(XMLUtils.getNode(objNotification, "//dmnotification/" + strNotificationType + "/BlackTonerCurrentLevel"));
+					/*if(strCurrentLevelAbsoluteBlack.length()<=0) {
+						strCurrentLevelAbsoluteBlack = XMLUtils.getTextContent(XMLUtils.getNode(objNotification, "//dmnotification/" + strNotificationType + "/CurrentLevelBlack"));
+					}*/
+					if ((strCurrentLevelAbsoluteBlack != null) && (strCurrentLevelAbsoluteBlack.length() > 0)) {
+						strMaxLevelBlack = (strMaxLevelBlack == null | strMaxLevelBlack.isEmpty())?XMLUtils.getAttributeValue(objDeviceNode, "BlackTonerMaxLevel"):strMaxLevelBlack;
+					}
+					
+					long nLevelC = -1;
+					long nLevelM = -1;
+					long nLevelY = -1;
+					long nLevelK = -1;
+												
+					try {
+						nLevelC = getValue(strCurrentLevelAbsoluteCyan, strMaxLevelCyan);
+					} catch (Exception e) {}
+					try {
+						nLevelM = getValue(strCurrentLevelAbsoluteMagenta, strMaxLevelMagenta);
+					} catch (Exception e) {}
+					try {
+						nLevelY = getValue(strCurrentLevelAbsoluteYellow, strMaxLevelYellow);
+					} catch (Exception e) {}
+					try {
+						nLevelK = getValue(strCurrentLevelAbsoluteBlack, strMaxLevelBlack);
+					} catch (Exception e) {}
+					
+					
+					if ((nLevelC > -1) || 
+							(nLevelM > -1) || 
+							(nLevelY > -1) || 
+							(nLevelK > -1)) {
+						
+						StringBuilder objMetadataBuilder = new StringBuilder();
+						
+						objMetadataBuilder.append("<dmmetadata><param");
+						
+						if (nLevelC > -1) {
+							objMetadataBuilder.append(" LevelC=\"").append(nLevelC).append("\"");
+							objMetadataBuilder.append(" PrevLevelC=\"").append(XMLUtils.getAttributeValue(objDeviceNode, "LevelC")).append("\"");
+						}
+						if (nLevelM > -1) {
+							objMetadataBuilder.append(" LevelM=\"").append(nLevelM).append("\"");
+							objMetadataBuilder.append(" PrevLevelM=\"").append(XMLUtils.getAttributeValue(objDeviceNode, "LevelM")).append("\"");
+						}
+						if (nLevelY > -1) {
+							objMetadataBuilder.append(" LevelY=\"").append(nLevelY).append("\"");
+							objMetadataBuilder.append(" PrevLevelY=\"").append(XMLUtils.getAttributeValue(objDeviceNode, "LevelY")).append("\"");
+						}
+						if (nLevelK > -1) {
+							objMetadataBuilder.append(" LevelK=\"").append(nLevelK).append("\"");
+							objMetadataBuilder.append(" PrevLevelK=\"").append(XMLUtils.getAttributeValue(objDeviceNode, "LevelK")).append("\"");
+						}
+						
+						objMetadataBuilder.append("/></dmmetadata>");
+						
+						m_objLogger.info("DeviceId:" + m_strDeviceId + " InsertMetadata Response:" + XMLUtils.toString(objDMDeviceAssets.insertMetaData(m_strSessionId, m_strDeviceId, m_strDeviceType, strAssetType, objMetadataBuilder.toString())));
+						
+						objMetadataBuilder.setLength(0);
+						
+					}							
+				}
+			}
+		} catch (Exception ex) {
+			m_objLogger.error("Exception: " + ex.getLocalizedMessage());
+		}
+	}
+	
+	private void updateTonerValuesBasedOnPRTValues(Document objAssetDoc) {
+		try {
+			if (objAssetDoc != null) {
+
+				Node objDeviceNode = XMLUtils.getNode(objAssetDoc, "//dmassetdata/Name/Device[@ID='" + m_strDeviceId + "']");
+				if (objDeviceNode != null) {
+
+					/*String strIndex = XMLUtils.getAttributeValue(objDeviceNode, "LevelKIndex");
+					if ((strIndex != null) && (strIndex.length() > 0)) {
+
+					} else {
+
+					}*/
+
+					StringBuilder objMetadataBuilder = new StringBuilder();
+
+					//objMetadataBuilder.append("<dmmetadata><param ");
+
+					HashMap<String, HashMap<String, String>> objPRTMap = getPRTMap(objDeviceNode);
+					if ((objPRTMap != null) && (objPRTMap.size() > 0)) {
+						
+						String strAssetType = XMLUtils.getAttributeValue(objDeviceNode.getParentNode(), "Type");
+						
+						Iterator<String> objKeys = objPRTMap.keySet().iterator();
+						while (objKeys.hasNext()) {
+							String strKey = objKeys.next();
+							String[] strParts = strKey.split("[_]");
+							if (strParts != null) {
+								String strMaxValue = objPRTMap.get(strKey).get("PRTSupplies.PRTSuppliesMaxLevel");
+								String strCurrentValue = objPRTMap.get(strKey).get("PRTSupplies.PRTSuppliesCurrentLevel");
+								long nLevel = -1;
+								if ((strMaxValue != null) && (strCurrentValue != null)) {
+									try {
+										nLevel = getValue(strCurrentValue, strMaxValue);
+									} catch (Exception e) {}
+								}
+								if (nLevel > -1) {
+									objMetadataBuilder.append(" ").append(strParts[0]).append("=\"").append(nLevel).append("\"");
+								}
+								
+							}
+						}
+						
+						if (objMetadataBuilder.length() > 0) {
+							objMetadataBuilder.insert(0, "<dmmetadata><param ");
+							objMetadataBuilder.append("/></dmmetadata>");
+							
+							m_objLogger.info("DeviceId:" + m_strDeviceId + " InsertMetadata Response:" + XMLUtils.toString(objDMDeviceAssets.insertMetaData(m_strSessionId, m_strDeviceId, m_strDeviceType, strAssetType, objMetadataBuilder.toString())));
+
+						}
+					}
+				}
+			}			
+		} catch (Exception ex) {
+			m_objLogger.error("Exception: " + ex.getLocalizedMessage());
+		}
+	}
+	
+	private HashMap<String, HashMap<String, String>> getPRTMap(Node objDeviceNode) {
+		HashMap<String, HashMap<String, String>> objMap = null;
+		try {
+			if (objDeviceNode != null) {
+				NamedNodeMap objNamedNodeMap = objDeviceNode.getAttributes();
+				if (objNamedNodeMap != null) {
+					objMap = new HashMap<String, HashMap<String, String>>();
+					for (int nIndex = 0; nIndex < objNamedNodeMap.getLength(); nIndex++) {
+						Node objNode = objNamedNodeMap.item(nIndex);
+						if (objNode != null) {
+							String strParamName = objNode.getNodeName();
+							if ((strParamName != null) && (strParamName.length() > 0)) {
+								if (strParamName.startsWith("PRTSupplies.PRTSuppliesDescription.")) {
+
+									String strTonerParam = getTonerParam(objNode);
+									if ((strTonerParam != null) && (strTonerParam.length() > 0)) {
+										String[] strParts = strParamName.split("[.]", 3);
+										String strKey = strTonerParam + "_" + strParts[2];
+										if (!objMap.containsKey(strParts[2])) {
+											objMap.put(strKey, new HashMap<String, String>());
+										}
+										objMap.get(strKey).put("PRTSupplies.PRTSuppliesMaxLevel", XML.getAttributeValue(objDeviceNode, "PRTSupplies.PRTSuppliesMaxLevel." + strParts[2]));
+										objMap.get(strKey).put("PRTSupplies.PRTSuppliesCurrentLevel", XML.getAttributeValue(objDeviceNode, "PRTSupplies.PRTSuppliesCurrentLevel." + strParts[2]));
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		} catch (Exception e) {}
+		return objMap;
+	}
+	
+	private String getTonerParam(Node objNode) {
+		String strTonerParam = null;
+		try {
+			if (objNode != null) {
+				String strParamValue = objNode.getNodeValue().toLowerCase();
+				if ((strParamValue != null) && (strParamValue.length() > 0)) {
+					for (String str:objBlackTonerDescriptions) {
+						if (strParamValue.contains(str)) {
+							strTonerParam = "LevelK";
+							break;
+						}
+					}
+					if (strTonerParam == null) {
+						for (String str:objCyanTonerDescriptions) {
+							if (strParamValue.contains(str)) {
+								strTonerParam = "LevelC";
+								break;
+							}
+						}
+					}
+					if (strTonerParam == null) {
+						for (String str:objMagentaTonerDescriptions) {
+							if (strParamValue.contains(str)) {
+								strTonerParam = "LevelM";
+								break;
+							}
+						}
+					}
+					if (strTonerParam == null) {
+						for (String str:objYellowTonerDescriptions) {
+							if (strParamValue.contains(str)) {
+								strTonerParam = "LevelY";
+								break;
+							}
+						}
+					}
+				}
+			}
+		} catch (Exception e) {}
+		return strTonerParam;
+	}
+	
+	private void updateTonerValuesBasedOnPRTSuppliesType(Document objAssetDoc) {
+		try {
+			if (objAssetDoc != null) {
+				Node objDeviceNode = XMLUtils.getNode(objAssetDoc, "//dmassetdata/Name/Device[@ID='" + m_strDeviceId + "']");
+				if (objDeviceNode != null) {
+					String strModelName = XML.getAttributeValue(objDeviceNode, "ModelName");
+					if ((strModelName != null) && (strModelName.length() > 0)) {
+						HashMap<String, String> objMap = getPRTSuppliesTypeIndices(strModelName);
+						
+						// HashMap<String, String> objMap = new HashMap<String, String>();
+						if ((objMap == null) || objMap.isEmpty()) {
+							objMap = getAndUpdatePRTSuppliesTypeIndices(objDeviceNode);
+						}
+						
+						if ((objMap != null) && (objMap.size() > 0)) {
+							StringBuilder objMetadataBuilder = new StringBuilder();
+							
+							String strAssetType = XMLUtils.getAttributeValue(objDeviceNode.getParentNode(), "Type");
+							
+							Iterator<String> objKeys = objMap.keySet().iterator();
+							while (objKeys.hasNext()) {
+								String strKey = objKeys.next();
+								String strMaxValue = XML.getAttributeValue(objDeviceNode, "PRTSupplies.PRTSuppliesMaxLevel." + objMap.get(strKey));
+								String strCurrentValue = XML.getAttributeValue(objDeviceNode, "PRTSupplies.PRTSuppliesCurrentLevel." + objMap.get(strKey));
+								
+								long nLevel = -1;
+								if ((strMaxValue != null) && (strCurrentValue != null)) {
+									try {
+										nLevel = getValue(strCurrentValue, strMaxValue);
+									} catch (Exception e) {}
+								}
+								if (nLevel > -1) {
+									objMetadataBuilder.append(" ").append(strKey).append("=\"").append(nLevel).append("\"");
+								}
+							}
+							
+							if (objMetadataBuilder.length() > 0) {
+								objMetadataBuilder.insert(0, "<dmmetadata><param ");
+								objMetadataBuilder.append("/></dmmetadata>");
+								
+								m_objLogger.info("DeviceId:" + m_strDeviceId + " InsertMetadata Response:" + XMLUtils.toString(objDMDeviceAssets.insertMetaData(m_strSessionId, m_strDeviceId, m_strDeviceType, strAssetType, objMetadataBuilder.toString())));
+
+							}
+						}
+					}
+				}				
+			}
+		} catch (Exception ex) {
+			m_objLogger.error("Exception: " + ex.getLocalizedMessage());
+		}
+	}
+	
+	private HashMap<String, String> getPRTSuppliesTypeIndices(String strModelName) {
+		HashMap<String, String> objMap = null;
+		try {
+			if ((strModelName != null) && (strModelName.length() > 0)) {
+				Document objAssetDoc = objDMDeviceAssets.getAssetData(m_strSessionId, strModelName);
+				if (objAssetDoc != null) {
+					
+					Node objDeviceNode = XMLUtils.getNode(objAssetDoc, "//dmassetdata/Name/Device[@ID='" + strModelName /*m_strDeviceId*/ + "']");
+					if (objDeviceNode != null) {
+						objMap = new HashMap<String, String>();
+						
+						String strValue = XML.getAttributeValue(objDeviceNode, "LevelC.PRTSuppliesType.Index");
+						if ((strValue != null) && (strValue.length() > 0)) {
+							objMap.put("LevelC", strValue);
+						}
+						
+						strValue = XML.getAttributeValue(objDeviceNode, "LevelM.PRTSuppliesType.Index");
+						if ((strValue != null) && (strValue.length() > 0)) {
+							objMap.put("LevelM", strValue);
+						}
+						
+						strValue = XML.getAttributeValue(objDeviceNode, "LevelY.PRTSuppliesType.Index");
+						if ((strValue != null) && (strValue.length() > 0)) {
+							objMap.put("LevelY", strValue);
+						}
+						
+						strValue = XML.getAttributeValue(objDeviceNode, "LevelK.PRTSuppliesType.Index");
+						if ((strValue != null) && (strValue.length() > 0)) {
+							objMap.put("LevelK", strValue);
+						}
+						
+						if (objMap.isEmpty()){
+							objMap = null;
+						}
+					}
+				}
+			}
+		} catch (Exception ex) {
+			m_objLogger.error("Exception: " + ex.getLocalizedMessage());
+		}
+		return objMap;
+	}
+	
+	private HashMap<String, String> getAndUpdatePRTSuppliesTypeIndices(Node objDeviceNode) {
+		HashMap<String, String> objMap = null;
+		try {
+			if (objDeviceNode != null) {
+				NamedNodeMap objNamedNodeMap = objDeviceNode.getAttributes();
+				if (objNamedNodeMap != null) {
+					objMap = new HashMap<String, String>();
+					
+					TreeMap<String, String> objColorantMap = new TreeMap<String, String>();
+					List<String> objPRTSuppliesTypeIndexList = new ArrayList<String>();
+					
+					for (int nIndex = 0; nIndex < objNamedNodeMap.getLength(); nIndex++) {
+						Node objNode = objNamedNodeMap.item(nIndex);
+						if (objNode != null) {
+							String strParamName = objNode.getNodeName();
+							if ((strParamName != null) && (strParamName.length() > 0)) {
+								
+								/*if (strParamName.startsWith("PRTSupplies.PRTSuppliesType.") && (objNode.getNodeValue() != null) &&
+										(objNode.getNodeValue().equalsIgnoreCase("3"))) {//Match for value 3 */
+								if (strParamName.startsWith("PRTSupplies.PRTSuppliesType.") && (objNode.getNodeValue() != null) && 
+									(objNode.getNodeValue().equalsIgnoreCase("3") || objNode.getNodeValue().equalsIgnoreCase("5") || objNode.getNodeValue().equalsIgnoreCase("6"))) {
+									String strIndex = strParamName.split("[.]", 3)[2];
+									
+									objPRTSuppliesTypeIndexList.add(strIndex);									
+								} else if (strParamName.startsWith("PRTMarkerColorant.PRTMarkerColorantValue.")) {
+									
+									String strIndex = strParamName.split("[.]", 3)[2];
+									objColorantMap.put(strIndex, getTonerType(objNode.getNodeValue()));
+								}
+							}
+						}
+					}
+					
+					if (objColorantMap.size() > 0) {
+						Collections.sort(objPRTSuppliesTypeIndexList);
+						
+						Iterator<String> objItr = objColorantMap.keySet().iterator();
+						int nIndex = 0;
+						while (objItr.hasNext()) {
+							String strNextIndex = objItr.next();
+							
+							objMap.put(objColorantMap.get(strNextIndex), objPRTSuppliesTypeIndexList.get(nIndex));
+							
+							nIndex++;
+						}
+					}
+					
+					if ((objMap != null) && (objMap.size() > 0)) {
+						String strModelName = XML.getAttributeValue(objDeviceNode, "ModelName");
+						if ((strModelName != null) && (strModelName.length() > 0)) {
+							
+							StringBuilder objMetadataBuilder = new StringBuilder();
+							
+							Iterator<String> objItr = objMap.keySet().iterator();
+							
+							while (objItr.hasNext()) {
+								String strNext = objItr.next();
+								
+								objMetadataBuilder.append(" ").append(strNext).append(".PRTSuppliesType.Index").append("=\"").append(objMap.get(strNext)).append("\"");
+							}
+							
+							if (objMetadataBuilder.length() > 0) {
+								objMetadataBuilder.insert(0, "<dmmetadata><param ");
+								objMetadataBuilder.append("/></dmmetadata>");
+								
+								m_objLogger.info("DeviceId:" + strModelName + " InsertMetadata Response:" + XMLUtils.toString(objDMDeviceAssets.insertMetaData(m_strSessionId, strModelName, "ModelService", "PrinterModel", objMetadataBuilder.toString())));
+
+							}
+						}
+					}
+				}
+			}
+		} catch (Exception ex) {
+			m_objLogger.error("Exception: " + ex.getLocalizedMessage());
+		}
+		return objMap;
+	}
+	
+	private String getTonerType(String strVal) {
+		try {
+			if ((strVal != null) && (strVal.length() > 0)) {
+				switch (strVal.toLowerCase()) {
+				case "cyan": strVal = "LevelC";break;
+				case "magenta": strVal = "LevelM";break;
+				case "yellow": strVal = "LevelY";break;
+				case "black": strVal = "LevelK";break;
+				}
+			}
+		} catch (Exception ex) {
+			m_objLogger.error("Exception: " + ex.getLocalizedMessage());
+		}
+		return strVal;
+	}
+	
+	public static void main(String[] args) {
+		long nLevelK = -1;
+		try {
+			
+			Document objDoc = XMLUtils.getDocument("<dmnotification><deviceparamupdates><sessionid>#DMSESSIONID</sessionid><deviceid>6A:95:78:70:1B:55_4</deviceid><instance>0</instance><assetids>DD:A8:4F:E6:57:DD_0</assetids><Contact>badmin</Contact><Location>BO1</Location><DeviceType>PrinterService</DeviceType><GroupId>311465c5-ac9a-47a2-83ee-d27db343bb2b</GroupId><CustomerName>BO1</CustomerName><SerialNumber>DD:A8:4F:E6:57:DD</SerialNumber><ServiceEngineer>bo1admin</ServiceEngineer><ProxyName>BO1</ProxyName><CurrentTime>1982-04-25T07:59:52+05:30</CurrentTime><IPAddress>10.255.108.245</IPAddress><ConnectionRequestURL>http://10.255.108.245:7799/rdmfCPEDDA84FE657DD</ConnectionRequestURL><DeviceSummary>Device:1.0[](Baseline:1, LAN:1, Services:1, X_InternalData:1)</DeviceSummary><ParameterKey>SetParameterValues</ParameterKey><PRTSupplies.PRTSuppliesDescription.1.1>Black Toner</PRTSupplies.PRTSuppliesDescription.1.1></deviceparamupdates></dmnotification>");
+			new TonerNotificationProcessor().parse(objDoc, "deviceparamupdates");
+			
+			TreeMap<String, String> objMap = new TreeMap<String, String>();
+			objMap.put("1.2", "LevelC");
+			objMap.put("1.1", "LevelY");
+			objMap.put("1.5", "LevelM");
+			objMap.put("1.3", "LevelK");
+			Collections.sort(new ArrayList<String>(objMap.keySet()));
+			System.out.println(objMap);
+			
+			
+			/*Object[] keys = objMap.keySet().toArray();
+			Arrays.sort(keys);
+			System.out.println(objMap);
+			
+			Map<String, String> treeMap = new TreeMap<String, String>(objMap);
+			System.out.println(treeMap);*/
+			
+			TreeSet<String> objlist = new TreeSet<String>();
+			objlist.add("1.2");
+			objlist.add("1.1");
+			objlist.add("1.5");
+			objlist.add("1.3");
+			System.out.println(objlist);
+			
+			
+			
+			
+			String str = "updateTonerValuesBasedOnPRTSuppliesType(objAssetDoc);PRTMarkerColorant.PRTMarkerColorantValue.1.1";
+			System.out.println(str.matches(".*PRTMarkerColorant.PRTMarkerColorantValue.*"));
+			
+			nLevelK = (long) (Double.parseDouble("1")*100/Double.parseDouble("1000"));
+			
+		} catch (Exception e) {}
+		
+		System.out.println(new TonerNotificationProcessor().getValue("253", ""));
+		//System.out.println(Long.MAX_VALUE);
+	}
+}
